@@ -14,27 +14,29 @@ var ArgumentParser = require('argparse').ArgumentParser;
 var ttf2woff = require('./index.js');
 
 
-var parser = new ArgumentParser ({
-  version: '0.0.1',
+var parser = new ArgumentParser({
+  version: require('./package.json').version,
   addHelp: true,
   description: 'TTF to WOFF font converter'
 });
 
-parser.addArgument (
-  ['-i', '--input'],
+parser.addArgument(
+  [ 'infile' ],
   {
-    help: 'Input file',
-    required: true
+    nargs: 1,
+    help: 'Input file'
   }
 );
-parser.addArgument (
-  ['-o', '--output'],
+
+parser.addArgument(
+  [ 'outfile' ],
   {
-    help: 'Output file',
-    required: true
+    nargs: 1,
+    help: 'Output file'
   }
 );
-parser.addArgument (
+
+parser.addArgument(
   ['-m', '--metadata'],
   {
     help: 'Metadata XML file (optional)',
@@ -43,18 +45,30 @@ parser.addArgument (
 );
 
 var args = parser.parseArgs();
-var ttf = fs.readFileSync (args.input);
+var ttf;
 var options = {};
 
-if (args.metadata) {
-  options.metadata = fs.readFileSync (args.metadata);
+try {
+  ttf = fs.readFileSync(args.infile[0]);
+} catch(e) {
+  console.error("Can't open input file (%s)", args.infile[0]);
+  process.exit(1);
 }
 
-ttf2woff (ttf, options, function (err, woff) {
+if (args.metadata) {
+  try {
+    options.metadata = fs.readFileSync (args.metadata);
+  } catch(e) {
+    console.error("Can't open metadata file (%s)", args.infile);
+    process.exit(1);
+  }
+}
+
+ttf2woff(ttf, options, function (err, woff) {
   if (err) {
     console.log(err);
     return;
   }
-  fs.writeFileSync (args.output, woff);
+  fs.writeFileSync(args.outfile[0], woff);
 });
 

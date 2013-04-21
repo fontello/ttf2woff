@@ -23,22 +23,6 @@ Usage example:
 ttf2woff fontello.ttf fontello.woff
 ```
 
-Or:
-
-``` bash
-ttf2woff < fontello.ttf > fontello.oet
-```
-
-
-Possible problems
------------------
-
-Due to bug in IE, font `FullName` __MUST__ begin with `FamilyName`. For example,
-if `FamilyName` is `fontello`, then `FullName` should be `fontello regular` and
-so on.
-
-In this condition is not satisfyed, then font will not be shown in IE.
-
 
 Authors
 -------
