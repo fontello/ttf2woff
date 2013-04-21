@@ -9,6 +9,35 @@
 var zlib = require('zlib');
 
 
+// eachSerries is stol^Wgently borrowed from async, to minimize code
+// https://github.com/caolan/async
+// the only difference is additionally passing index as second iterator param
+function eachSeries(arr, iterator, callback) {
+  callback = callback || function () {};
+  if (!arr.length) {
+    return callback();
+  }
+  var completed = 0;
+  var iterate = function () {
+    iterator(arr[completed], completed, function (err) {
+      if (err) {
+        callback(err);
+        callback = function () {};
+      }
+      else {
+        completed += 1;
+        if (completed >= arr.length) {
+          callback(null);
+        }
+        else {
+          iterate();
+        }
+      }
+    });
+  };
+  iterate();
+}
+
 function ulong(t) {
   /*jshint bitwise:false*/
   t &= 0xffffffff;
@@ -18,7 +47,7 @@ function ulong(t) {
   return t;
 }
 
-function longalign(n) {
+function longAlign(n) {
   /*jshint bitwise:false*/
   return (n+3) & ~3;
 }
@@ -165,7 +194,7 @@ function ttf2woff(buf, options, callback)
     tableEntry = entries[i];
 
     if (tableEntry.Tag !== 'head') {
-      var algntable = buf.slice(tableEntry.Offset, tableEntry.Offset + longalign(tableEntry.Length));
+      var algntable = buf.slice(tableEntry.Offset, tableEntry.Offset + longAlign(tableEntry.Length));
       if (calc_checksum(algntable) !== tableEntry.checkSum) {
         callback(new Error('checksum error'));
         return;
@@ -180,49 +209,57 @@ function ttf2woff(buf, options, callback)
     );
     tableBuf.writeUInt32BE(tableEntry.Length, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.LENGTH);
     tableBuf.writeUInt32BE(tableEntry.checkSum, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.CHECKSUM);
-    sfntSize += longalign(tableEntry.Length);
+    sfntSize += longAlign(tableEntry.Length);
   }
 
-  var pending = entries.length, out;
-  entries.forEach(function (tableEntry, i) {
-    var sfntData = buf.slice(tableEntry.Offset, tableEntry.Offset + tableEntry.Length);
-    if (tableEntry.Tag === 'head') {
-      version.maj = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MAJ);
-      version.min = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MIN);
-      flavor = sfntData.readUInt32BE(SFNT_ENTRY_OFFSET.FLAVOR);
-    }
-    zlib.deflate(sfntData, function (err, woffData) {
+  eachSeries(
+    entries,
+    function (tableEntry, i, next) {
+      var sfntData = buf.slice(tableEntry.Offset, tableEntry.Offset + tableEntry.Length);
+      if (tableEntry.Tag === 'head') {
+        version.maj = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MAJ);
+        version.min = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MIN);
+        flavor = sfntData.readUInt32BE(SFNT_ENTRY_OFFSET.FLAVOR);
+      }
+      zlib.deflate(sfntData, function (err, woffData) {
+        if (err) {
+          next(err);
+          return;
+        }
+
+        if (woffData.length > sfntData.length) {
+          woffData = sfntData;
+        }
+
+        var compLength = woffData.length;
+        woffData = pad(woffData);
+
+        tableBuf.writeUInt32BE(offset, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.OFFSET);
+
+        offset += woffData.length;
+        woffSize += woffData.length;
+
+        tableBuf.writeUInt32BE(compLength, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.COMPR_LENGTH);
+
+        dataBuf = Buffer.concat([dataBuf, woffData]);
+        next();
+      });
+    },
+    function(err) {
       if (err) {
         callback(err);
         return;
       }
+      woffHeader.writeUInt32BE(woffSize, WOFF_OFFSET.SIZE);
+      woffHeader.writeUInt32BE(sfntSize, WOFF_OFFSET.SFNT_SIZE);
+      woffHeader.writeUInt16BE(version.maj, WOFF_OFFSET.VERSION_MAJ);
+      woffHeader.writeUInt16BE(version.min, WOFF_OFFSET.VERSION_MIN);
+      woffHeader.writeUInt32BE(flavor, WOFF_OFFSET.FLAVOR);
 
-      if (woffData.length > sfntData.length) {
-        woffData = sfntData;
-      }
-
-      var compLength = woffData.length;
-      woffData = pad(woffData);
-
-      tableBuf.writeUInt32BE(offset, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.OFFSET);
-
-      offset += woffData.length;
-      woffSize += woffData.length;
-
-      tableBuf.writeUInt32BE(compLength, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.COMPR_LENGTH);
-
-      dataBuf = Buffer.concat([dataBuf, woffData]);
-      if (!--pending) {
-        woffHeader.writeUInt32BE(woffSize, WOFF_OFFSET.SIZE);
-        woffHeader.writeUInt32BE(sfntSize, WOFF_OFFSET.SFNT_SIZE);
-        woffHeader.writeUInt16BE(version.maj, WOFF_OFFSET.VERSION_MAJ);
-        woffHeader.writeUInt16BE(version.min, WOFF_OFFSET.VERSION_MIN);
-        woffHeader.writeUInt32BE(flavor, WOFF_OFFSET.FLAVOR);
-        out = Buffer.concat([woffHeader, tableBuf, dataBuf]);
-        woffAppendMetadata(out, options.metadata, callback);
-      }
-    });
-  });
+      var out = Buffer.concat([woffHeader, tableBuf, dataBuf]);
+      woffAppendMetadata(out, options.metadata, callback);
+    }
+  );
 }
 
 module.exports = ttf2woff;
