@@ -1,7 +1,7 @@
 {
   "name"            : "ttf2woff",
 
-  "version"         : "1.2.0",
+  "version"         : "1.0.0",
 
   "description"     : "Convert TTF font to WOFF",
   "keywords"        : ["font", "ttf", "woff", "convertor"],
@@ -24,6 +24,8 @@
                         "type": "git",
                         "url": "git://github.com/fontello/ttf2woff.git"
                       },
+
+  "main"            : "./index.js",
 
   "bin"             : {
                         "ttf2woff": "./ttf2woff.js"
