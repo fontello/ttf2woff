@@ -1,0 +1,32 @@
+{
+  "name"            : "ttf2woff",
+
+  "version"         : "1.2.0",
+
+  "description"     : "Convert TTF font to WOFF",
+  "keywords"        : ["font", "ttf", "woff", "convertor"],
+  "homepage"        : "https://github.com/nodeca/ttf2woff",
+  "author"          : {
+                        "name"  : "Viktor Semykin",
+                        "email" : "thesame.ml@gmail.com"
+                      },
+  "bugs"            : { "url": "https://github.com/fontello/ttf2woff/issues" },
+  "licenses"        : [
+                        {
+                          "type": "MIT",
+                          "url": "https://github.com/fontello/ttf2eot/raw/master/LICENSE"
+                        }
+                      ],
+
+  "dependencies"    : { "argparse": "~0.1.12" },
+
+  "repository"      : {
+                        "type": "git",
+                        "url": "git://github.com/fontello/ttf2woff.git"
+                      },
+
+  "bin"             : {
+                        "ttf2woff": "./ttf2woff.js"
+                      }
+}
+
