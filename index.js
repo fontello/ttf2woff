@@ -112,10 +112,12 @@ var SFNT_ENTRY_OFFSET = {
   FLAVOR: 0,
   VERSION_MAJ: 4,
   VERSION_MIN: 6,
+  CHECKSUM_ADJUSTMENT: 8
 };
 
 var MAGIC = {
-  WOFF: 0x774F4646
+  WOFF: 0x774F4646,
+  CHECKSUM_ADJUSTMENT: 0xB1B0AFBA
 };
 
 var SIZEOF = {
@@ -149,9 +151,8 @@ function ttf2woff(buf, options, callback)
     maj: 0,
     min: 1
   };
-  //var woffTables = [];
-  //var sfntTables = [];
   var numTables = buf.readUInt16BE (4);
+  var sfntVersion = buf.readUInt32BE (0);
   var flavor = 0x10000;
 
   var woffHeader = new Buffer(SIZEOF.WOFF_HEADER);
@@ -189,7 +190,6 @@ function ttf2woff(buf, options, callback)
   var dataBuf = new Buffer(0);
 
   var tableBuf = new Buffer(entries.length * SIZEOF.WOFF_ENTRY);
-  //var csadj = 0;
   for (i = 0; i < entries.length; ++i) {
     tableEntry = entries[i];
 
@@ -212,6 +212,22 @@ function ttf2woff(buf, options, callback)
     sfntSize += longAlign(tableEntry.Length);
   }
 
+  var sfntOffset = SIZEOF.SFNT_HEADER + entries.length * SIZEOF.SFNT_TABLE_ENTRY;
+  var csum = calc_checksum (buf.slice (0, SIZEOF.SFNT_HEADER));
+  for (i = 0; i < entries.length; ++i)
+  {
+    var tableEntry = entries[i];
+    var b = new Buffer (SIZEOF.SFNT_TABLE_ENTRY);
+    b.write (tableEntry.Tag, SFNT_OFFSET.TAG);
+    b.writeUInt32BE (tableEntry.checkSum, SFNT_OFFSET.CHECKSUM);
+    b.writeUInt32BE (sfntOffset, SFNT_OFFSET.OFFSET);
+    b.writeUInt32BE (tableEntry.Length, SFNT_OFFSET.LENGTH);
+    sfntOffset += longAlign (tableEntry.Length);
+    csum += calc_checksum (b);
+    csum += tableEntry.checkSum;
+  }
+  var checksumAdjustment = ulong (MAGIC.CHECKSUM_ADJUSTMENT - csum);
+
   eachSeries(
     entries,
     function (tableEntry, i, next) {
@@ -220,6 +236,7 @@ function ttf2woff(buf, options, callback)
         version.maj = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MAJ);
         version.min = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MIN);
         flavor = sfntData.readUInt32BE(SFNT_ENTRY_OFFSET.FLAVOR);
+        sfntData.writeUInt32BE (checksumAdjustment, SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT);
       }
       zlib.deflate(sfntData, function (err, woffData) {
         if (err) {
