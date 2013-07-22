@@ -7,6 +7,8 @@
 'use strict';
 
 var zlib = require('zlib');
+var _ = require('lodash');
+var jDataView = require('jDataView');
 
 
 // eachSerries is stol^Wgently borrowed from async, to minimize code
@@ -68,10 +70,10 @@ function pad(src) {
 
 function calc_checksum(buf) {
   var sum = 0;
-  var nlongs = buf.length / 4;
+  var nlongs = buf.byteLength / 4;
 
   for (var i = 0; i < nlongs; ++i) {
-    var t = buf.readUInt32BE(i*4);
+    var t = buf.getUint32(i*4);
     sum = ulong(sum + t);
   }
   return sum;
@@ -137,11 +139,16 @@ function woffAppendMetadata(src, metadata, callback) {
       callback(err);
       return;
     }
-    src.writeUInt32BE(src.length + zdata.length, WOFF_OFFSET.SIZE);
-    src.writeUInt32BE(src.length, WOFF_OFFSET.META_OFFSET);
-    src.writeUInt32BE(zdata.length, WOFF_OFFSET.META_LENGTH);
-    src.writeUInt32BE(metadata.length, WOFF_OFFSET.META_ORIG_LENGTH);
-    callback(null, Buffer.concat ([src, zdata]));
+    src.setUint32(WOFF_OFFSET.SIZE, src.byteLength + zdata.length);
+    src.setUint32(WOFF_OFFSET.META_OFFSET, src.byteLength);
+    src.setUint32(WOFF_OFFSET.META_LENGTH, zdata.length);
+    src.setUint32(WOFF_OFFSET.META_ORIG_LENGTH, metadata.length);
+
+    //concatenate src and zdata
+    var buf = new jDataView(src.byteLength + zdata.length);
+    buf.writeBytes(src.buffer);
+    buf.writeBytes(zdata);
+    callback(null, buf);
   });
 }
 
@@ -151,20 +158,20 @@ function ttf2woff(buf, options, callback)
     maj: 0,
     min: 1
   };
-  var numTables = buf.readUInt16BE (4);
-  var sfntVersion = buf.readUInt32BE (0);
+  var numTables = buf.getUint16 (4);
+  var sfntVersion = buf.getUint32 (0);
   var flavor = 0x10000;
 
-  var woffHeader = new Buffer(SIZEOF.WOFF_HEADER);
-  woffHeader.writeUInt32BE(MAGIC.WOFF, WOFF_OFFSET.MAGIC);
-  woffHeader.writeUInt16BE(numTables, WOFF_OFFSET.NUM_TABLES);
-  woffHeader.writeUInt16BE(0, WOFF_OFFSET.RESERVED);
-  woffHeader.writeUInt32BE(0, WOFF_OFFSET.SFNT_SIZE);
-  woffHeader.writeUInt32BE(0, WOFF_OFFSET.META_OFFSET);
-  woffHeader.writeUInt32BE(0, WOFF_OFFSET.META_LENGTH);
-  woffHeader.writeUInt32BE(0, WOFF_OFFSET.META_ORIG_LENGTH);
-  woffHeader.writeUInt32BE(0, WOFF_OFFSET.PRIV_OFFSET);
-  woffHeader.writeUInt32BE(0, WOFF_OFFSET.PRIV_LENGTH);
+  var woffHeader = new jDataView(SIZEOF.WOFF_HEADER);
+  woffHeader.setUint32(WOFF_OFFSET.MAGIC, MAGIC.WOFF);
+  woffHeader.setUint16(WOFF_OFFSET.NUM_TABLES, numTables);
+  woffHeader.setUint16(WOFF_OFFSET.RESERVED, 0);
+  woffHeader.setUint32(WOFF_OFFSET.SFNT_SIZE, 0);
+  woffHeader.setUint32(WOFF_OFFSET.META_OFFSET, 0);
+  woffHeader.setUint32(WOFF_OFFSET.META_LENGTH, 0);
+  woffHeader.setUint32(WOFF_OFFSET.META_ORIG_LENGTH, 0);
+  woffHeader.setUint32(WOFF_OFFSET.PRIV_OFFSET, 0);
+  woffHeader.setUint32(WOFF_OFFSET.PRIV_LENGTH, 0);
 
   var entries = [];
 
@@ -173,10 +180,10 @@ function ttf2woff(buf, options, callback)
   for (i = 0; i < numTables; ++i) {
     var data = buf.slice(SIZEOF.SFNT_HEADER + i*SIZEOF.SFNT_TABLE_ENTRY);
     tableEntry = {
-      Tag: data.toString('ascii', SFNT_OFFSET.TAG, 4),
-      checkSum: data.readUInt32BE(SFNT_OFFSET.CHECKSUM),
-      Offset: data.readUInt32BE(SFNT_OFFSET.OFFSET),
-      Length: data.readUInt32BE(SFNT_OFFSET.LENGTH)
+      Tag: data.getString(4, SFNT_OFFSET.TAG, 'ascii'),
+      checkSum: data.getUint32(SFNT_OFFSET.CHECKSUM),
+      Offset: data.getUint32(SFNT_OFFSET.OFFSET),
+      Length: data.getUint32(SFNT_OFFSET.LENGTH)
     };
     entries.push (tableEntry);
   }
@@ -189,7 +196,7 @@ function ttf2woff(buf, options, callback)
   var sfntSize = SIZEOF.SFNT_HEADER + numTables * SIZEOF.SFNT_TABLE_ENTRY;
   var dataBuf = new Buffer(0);
 
-  var tableBuf = new Buffer(entries.length * SIZEOF.WOFF_ENTRY);
+  var tableBuf = new jDataView(entries.length * SIZEOF.WOFF_ENTRY);
   for (i = 0; i < entries.length; ++i) {
     tableEntry = entries[i];
 
@@ -201,14 +208,12 @@ function ttf2woff(buf, options, callback)
       }
     }
 
-    tableBuf.write(
+    tableBuf.setString(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.TAG,
       tableEntry.Tag,
-      i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.TAG,
-      i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.TAG + 4,
       'ascii'
     );
-    tableBuf.writeUInt32BE(tableEntry.Length, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.LENGTH);
-    tableBuf.writeUInt32BE(tableEntry.checkSum, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.CHECKSUM);
+    tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.LENGTH, tableEntry.Length);
+    tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.CHECKSUM, tableEntry.checkSum);
     sfntSize += longAlign(tableEntry.Length);
   }
 
@@ -217,11 +222,11 @@ function ttf2woff(buf, options, callback)
   for (i = 0; i < entries.length; ++i)
   {
     var tableEntry = entries[i];
-    var b = new Buffer (SIZEOF.SFNT_TABLE_ENTRY);
-    b.write (tableEntry.Tag, SFNT_OFFSET.TAG);
-    b.writeUInt32BE (tableEntry.checkSum, SFNT_OFFSET.CHECKSUM);
-    b.writeUInt32BE (sfntOffset, SFNT_OFFSET.OFFSET);
-    b.writeUInt32BE (tableEntry.Length, SFNT_OFFSET.LENGTH);
+    var b = new jDataView (SIZEOF.SFNT_TABLE_ENTRY);
+    b.setString (SFNT_OFFSET.TAG, tableEntry.Tag);
+    b.setUint32 (SFNT_OFFSET.CHECKSUM, tableEntry.checkSum);
+    b.setUint32 (SFNT_OFFSET.OFFSET, sfntOffset);
+    b.setUint32 (SFNT_OFFSET.LENGTH, tableEntry.Length);
     sfntOffset += longAlign (tableEntry.Length);
     csum += calc_checksum (b);
     csum += tableEntry.checkSum;
@@ -231,34 +236,38 @@ function ttf2woff(buf, options, callback)
   eachSeries(
     entries,
     function (tableEntry, i, next) {
-      var sfntData = buf.slice(tableEntry.Offset, tableEntry.Offset + tableEntry.Length);
+      var sfntData = buf.slice(tableEntry.Offset, tableEntry.Offset + tableEntry.Length, true);
       if (tableEntry.Tag === 'head') {
-        version.maj = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MAJ);
-        version.min = sfntData.readUInt16BE(SFNT_ENTRY_OFFSET.VERSION_MIN);
-        flavor = sfntData.readUInt32BE(SFNT_ENTRY_OFFSET.FLAVOR);
-        sfntData.writeUInt32BE (checksumAdjustment, SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT);
+        version.maj = sfntData.getUint16(SFNT_ENTRY_OFFSET.VERSION_MAJ);
+        version.min = sfntData.getUint16(SFNT_ENTRY_OFFSET.VERSION_MIN);
+        flavor = sfntData.getUint32(SFNT_ENTRY_OFFSET.FLAVOR);
+        sfntData.setUint32 (SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT, checksumAdjustment);
       }
-      zlib.deflate(sfntData, function (err, woffData) {
+      var res = zlib.deflate(sfntData.buffer, function (err, woffData) {
         if (err) {
           next(err);
           return;
         }
 
-        if (woffData.length > sfntData.length) {
-          woffData = sfntData;
+        if (woffData.length > sfntData.byteLength) {
+          woffData = sfntData.buffer;
         }
 
         var compLength = woffData.length;
         woffData = pad(woffData);
 
-        tableBuf.writeUInt32BE(offset, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.OFFSET);
+        tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.OFFSET, offset);
 
         offset += woffData.length;
         woffSize += woffData.length;
 
-        tableBuf.writeUInt32BE(compLength, i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.COMPR_LENGTH);
-
-        dataBuf = Buffer.concat([dataBuf, woffData]);
+        tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.COMPR_LENGTH, compLength);
+        var newBuf = new jDataView((dataBuf.byteLength || 0) + woffData.length);
+        if (dataBuf.buffer) {
+          newBuf.writeBytes(dataBuf.buffer);
+        }
+        newBuf.writeBytes(woffData);
+        dataBuf = newBuf;
         next();
       });
     },
@@ -267,13 +276,16 @@ function ttf2woff(buf, options, callback)
         callback(err);
         return;
       }
-      woffHeader.writeUInt32BE(woffSize, WOFF_OFFSET.SIZE);
-      woffHeader.writeUInt32BE(sfntSize, WOFF_OFFSET.SFNT_SIZE);
-      woffHeader.writeUInt16BE(version.maj, WOFF_OFFSET.VERSION_MAJ);
-      woffHeader.writeUInt16BE(version.min, WOFF_OFFSET.VERSION_MIN);
-      woffHeader.writeUInt32BE(flavor, WOFF_OFFSET.FLAVOR);
+      woffHeader.setUint32(WOFF_OFFSET.SIZE, woffSize);
+      woffHeader.setUint32(WOFF_OFFSET.SFNT_SIZE, sfntSize);
+      woffHeader.setUint16(WOFF_OFFSET.VERSION_MAJ, version.maj);
+      woffHeader.setUint16(WOFF_OFFSET.VERSION_MIN, version.min);
+      woffHeader.setUint32(WOFF_OFFSET.FLAVOR, flavor);
 
-      var out = Buffer.concat([woffHeader, tableBuf, dataBuf]);
+      var out = new jDataView(woffHeader.byteLength + tableBuf.byteLength + dataBuf.byteLength);
+      out.writeBytes(woffHeader.buffer);
+      out.writeBytes(tableBuf.buffer);
+      out.writeBytes(dataBuf.buffer);
       woffAppendMetadata(out, options.metadata, callback);
     }
   );

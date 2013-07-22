@@ -10,6 +10,7 @@
 
 var fs = require('fs');
 var ArgumentParser = require('argparse').ArgumentParser;
+var jDataView = require('jDataView');
 
 var ttf2woff = require('./index.js');
 
@@ -49,7 +50,7 @@ var ttf;
 var options = {};
 
 try {
-  ttf = fs.readFileSync(args.infile[0]);
+  ttf = new jDataView(fs.readFileSync(args.infile[0]));
 } catch(e) {
   console.error("Can't open input file (%s)", args.infile[0]);
   process.exit(1);
@@ -69,6 +70,6 @@ ttf2woff(ttf, options, function (err, woff) {
     console.log(err);
     return;
   }
-  fs.writeFileSync(args.outfile[0], woff);
+  fs.writeFileSync(args.outfile[0], woff.buffer);
 });
 

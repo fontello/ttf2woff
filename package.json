@@ -18,7 +18,9 @@
                         }
                       ],
 
-  "dependencies"    : { "argparse": "~0.1.12" },
+  "dependencies"    : { "argparse": "~0.1.12",
+                        "lodash": "~ 1.2.1",
+                        "jDataView": "~ 2.2.1"},
 
   "repository"      : {
                         "type": "git",
