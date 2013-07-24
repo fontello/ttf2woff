@@ -249,7 +249,7 @@ function ttf2woff(buf, options, callback)
           return;
         }
 
-        if (woffData.length > sfntData.byteLength) {
+        if (woffData.length >= sfntData.byteLength) { //WOFF standard requires packed data only if size is reduced.
           woffData = sfntData.buffer;
         }
 
