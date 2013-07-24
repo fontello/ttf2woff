@@ -7,7 +7,6 @@
 'use strict';
 
 var zlib = require('zlib');
-var _ = require('lodash');
 var jDataView = require('jDataView');
 
 
@@ -154,12 +153,17 @@ function woffAppendMetadata(src, metadata, callback) {
 
 function ttf2woff(buf, options, callback)
 {
+  // Check buffer type. If not jDataView - cast it.
+  if (!(buf instanceof jDataView)) {
+    buf = new jDataView(buf);
+  }
+
   var version = {
     maj: 0,
     min: 1
   };
   var numTables = buf.getUint16 (4);
-  var sfntVersion = buf.getUint32 (0);
+  //var sfntVersion = buf.getUint32 (0);
   var flavor = 0x10000;
 
   var woffHeader = new jDataView(SIZEOF.WOFF_HEADER);
@@ -221,7 +225,7 @@ function ttf2woff(buf, options, callback)
   var csum = calc_checksum (buf.slice (0, SIZEOF.SFNT_HEADER));
   for (i = 0; i < entries.length; ++i)
   {
-    var tableEntry = entries[i];
+    tableEntry = entries[i];
     var b = new jDataView (SIZEOF.SFNT_TABLE_ENTRY);
     b.setString (SFNT_OFFSET.TAG, tableEntry.Tag);
     b.setUint32 (SFNT_OFFSET.CHECKSUM, tableEntry.checkSum);
@@ -243,7 +247,7 @@ function ttf2woff(buf, options, callback)
         flavor = sfntData.getUint32(SFNT_ENTRY_OFFSET.FLAVOR);
         sfntData.setUint32 (SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT, checksumAdjustment);
       }
-      var res = zlib.deflate(sfntData.buffer, function (err, woffData) {
+      zlib.deflate(sfntData.buffer, function (err, woffData) {
         if (err) {
           next(err);
           return;
