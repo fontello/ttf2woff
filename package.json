@@ -1,7 +1,7 @@
 {
   "name"            : "ttf2woff",
 
-  "version"         : "1.0.1",
+  "version"         : "1.1.0",
 
   "description"     : "Convert TTF font to WOFF",
   "keywords"        : ["font", "ttf", "woff", "convertor"],
@@ -18,9 +18,10 @@
                         }
                       ],
 
-  "dependencies"    : { "argparse": "~0.1.12",
-                        "lodash": "~ 1.2.1",
-                        "jDataView": "~ 2.2.1"},
+  "dependencies"    : {
+                        "argparse"  : "~ 0.1.15",
+                        "jDataView" : "~ 2.2.4"
+                      },
 
   "repository"      : {
                         "type": "git",
