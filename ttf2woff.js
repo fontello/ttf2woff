@@ -45,11 +45,11 @@ parser.addArgument(
 );
 
 var args = parser.parseArgs();
-var ttf;
+var input;
 var options = {};
 
 try {
-  ttf = fs.readFileSync(args.infile[0]);
+  input = fs.readFileSync(args.infile[0]);
 } catch(e) {
   console.error("Can't open input file (%s)", args.infile[0]);
   process.exit(1);
@@ -64,11 +64,13 @@ if (args.metadata) {
   }
 }
 
-ttf2woff(ttf, options, function (err, woff) {
+var ttf = Array.prototype.slice.call(input, 0);
+ttf2woff(ttf, options, function (err, res) {
   if (err) {
     console.log(err);
     return;
   }
-  fs.writeFileSync(args.outfile[0], woff.buffer);
+  var woff = new Buffer(res.buffer);
+  fs.writeFileSync(args.outfile[0], woff);
 });
 

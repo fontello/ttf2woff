@@ -19,8 +19,7 @@
                       ],
 
   "dependencies"    : {
-                        "argparse"  : "~ 0.1.15",
-                        "jDataView" : "~ 2.2.4"
+                        "argparse"  : "~ 0.1.15"
                       },
 
   "repository"      : {
