@@ -9,35 +9,7 @@
 var zlib = require('zlib');
 
 var ByteBuffer = require('./lib/byte_buffer.js');
-
-// eachSerries is stol^Wgently borrowed from async, to minimize code
-// https://github.com/caolan/async
-// the only difference is additionally passing index as second iterator param
-function eachSeries(arr, iterator, callback) {
-  callback = callback || function () {};
-  if (!arr.length) {
-    return callback();
-  }
-  var completed = 0;
-  var iterate = function () {
-    iterator(arr[completed], completed, function (err) {
-      if (err) {
-        callback(err);
-        callback = function () {};
-      }
-      else {
-        completed += 1;
-        if (completed >= arr.length) {
-          callback(null);
-        }
-        else {
-          iterate();
-        }
-      }
-    });
-  };
-  iterate();
-}
+var Deflate = require('./lib/deflate.js');
 
 function ulong(t) {
   /*jshint bitwise:false*/
@@ -129,29 +101,21 @@ var SIZEOF = {
 };
 
 function woffAppendMetadata(src, metadata, callback) {
-  if (!metadata) {
-    callback(null, src);
-    return;
-  }
-  zlib.deflate(new Buffer(metadata), function (err, res) {
-    if (err) {
-      callback(err);
-      return;
-    }
 
-    var zdata =  new ByteBuffer(Array.prototype.slice.call(res, 0));
-    src.setUint32(WOFF_OFFSET.SIZE, src.length + zdata.length);
-    src.setUint32(WOFF_OFFSET.META_OFFSET, src.length);
-    src.setUint32(WOFF_OFFSET.META_LENGTH, zdata.length);
-    src.setUint32(WOFF_OFFSET.META_ORIG_LENGTH, metadata.length);
+  var  res = Deflate(metadata);
 
-    //concatenate src and zdata
-    var len = src.length + zdata.length
-    var buf = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
-    buf.writeBytes(src.buffer);
-    buf.writeBytes(zdata);
-    callback(null, buf);
-  });
+  var zdata =  new ByteBuffer(Array.prototype.slice.call(res, 0));
+  src.setUint32(WOFF_OFFSET.SIZE, src.length + zdata.length);
+  src.setUint32(WOFF_OFFSET.META_OFFSET, src.length);
+  src.setUint32(WOFF_OFFSET.META_LENGTH, zdata.length);
+  src.setUint32(WOFF_OFFSET.META_ORIG_LENGTH, metadata.length);
+
+  //concatenate src and zdata
+  var len = src.length + zdata.length;
+  var buf = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
+  buf.writeBytes(src.buffer);
+  buf.writeBytes(zdata);
+  return buf;
 }
 
 function ttf2woff(arr, options, callback) {
@@ -232,67 +196,59 @@ function ttf2woff(arr, options, callback) {
   }
   var checksumAdjustment = ulong (MAGIC.CHECKSUM_ADJUSTMENT - csum);
 
-  eachSeries(
-    entries,
-    function (tableEntry, i, next) {
-      var sfntData = new ByteBuffer(buf.buffer, tableEntry.Offset, tableEntry.Length);
-      if (tableEntry.Tag === 'head') {
-        version.maj = sfntData.getUint16(SFNT_ENTRY_OFFSET.VERSION_MAJ);
-        version.min = sfntData.getUint16(SFNT_ENTRY_OFFSET.VERSION_MIN);
-        flavor = sfntData.getUint32(SFNT_ENTRY_OFFSET.FLAVOR);
-        sfntData.setUint32 (SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT, checksumAdjustment);
-      }
-      zlib.deflate(new Buffer(sfntData.buffer).slice(sfntData.start, sfntData.start + sfntData.length), function (err, res) {
-        if (err) {
-          next(err);
-          return;
-        }
-
-        var woffData;
-        if (res.length >= sfntData.length) { //WOFF standard requires packed data only if size is reduced.
-          woffData = new ByteBuffer(sfntData.buffer.slice(sfntData.start, sfntData.start + sfntData.length));
-        } else
-          woffData = new ByteBuffer(Array.prototype.slice.call(res, 0));
-
-
-        var compLength = woffData.length;
-        woffData = pad(woffData);
-
-        tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.OFFSET, offset);
-
-        offset += woffData.length;
-        woffSize += woffData.length;
-
-        tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.COMPR_LENGTH, compLength);
-        var len = (dataBuf.length || 0) + woffData.length;
-        var newBuf = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
-        if (dataBuf.buffer) {
-          newBuf.writeBytes(dataBuf.buffer);
-        }
-        newBuf.writeBytes(woffData.buffer);
-        dataBuf = newBuf;
-        next();
-      });
-    },
-    function(err) {
-      if (err) {
-        callback(err);
-        return;
-      }
-      woffHeader.setUint32(WOFF_OFFSET.SIZE, woffSize);
-      woffHeader.setUint32(WOFF_OFFSET.SFNT_SIZE, sfntSize);
-      woffHeader.setUint16(WOFF_OFFSET.VERSION_MAJ, version.maj);
-      woffHeader.setUint16(WOFF_OFFSET.VERSION_MIN, version.min);
-      woffHeader.setUint32(WOFF_OFFSET.FLAVOR, flavor);
-
-      var len = woffHeader.length + tableBuf.length + dataBuf.length;
-      var out = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
-      out.writeBytes(woffHeader.buffer);
-      out.writeBytes(tableBuf.buffer);
-      out.writeBytes(dataBuf.buffer);
-      woffAppendMetadata(out, options.metadata, callback);
+  for (i = 0; i < entries.length; ++i) {
+    tableEntry = entries[i];
+    var sfntData = new ByteBuffer(buf.buffer, tableEntry.Offset, tableEntry.Length);
+    if (tableEntry.Tag === 'head') {
+      version.maj = sfntData.getUint16(SFNT_ENTRY_OFFSET.VERSION_MAJ);
+      version.min = sfntData.getUint16(SFNT_ENTRY_OFFSET.VERSION_MIN);
+      flavor = sfntData.getUint32(SFNT_ENTRY_OFFSET.FLAVOR);
+      sfntData.setUint32 (SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT, checksumAdjustment);
     }
-  );
+
+    var res = Deflate(sfntData.buffer.slice(sfntData.start, sfntData.start + sfntData.length));
+
+    var woffData;
+    if (res.length >= sfntData.length) { //WOFF standard requires packed data only if size is reduced.
+      woffData = new ByteBuffer(sfntData.buffer.slice(sfntData.start, sfntData.start + sfntData.length));
+    } else
+      woffData = new ByteBuffer(Array.prototype.slice.call(res, 0));
+
+
+    var compLength = woffData.length;
+    woffData = pad(woffData);
+
+    tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.OFFSET, offset);
+
+    offset += woffData.length;
+    woffSize += woffData.length;
+
+    tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.COMPR_LENGTH, compLength);
+    var len = (dataBuf.length || 0) + woffData.length;
+    var newBuf = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
+    if (dataBuf.buffer) {
+      newBuf.writeBytes(dataBuf.buffer);
+    }
+    newBuf.writeBytes(woffData.buffer);
+    dataBuf = newBuf;
+  }
+
+  woffHeader.setUint32(WOFF_OFFSET.SIZE, woffSize);
+  woffHeader.setUint32(WOFF_OFFSET.SFNT_SIZE, sfntSize);
+  woffHeader.setUint16(WOFF_OFFSET.VERSION_MAJ, version.maj);
+  woffHeader.setUint16(WOFF_OFFSET.VERSION_MIN, version.min);
+  woffHeader.setUint32(WOFF_OFFSET.FLAVOR, flavor);
+
+  var len = woffHeader.length + tableBuf.length + dataBuf.length;
+  var out = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
+  out.writeBytes(woffHeader.buffer);
+  out.writeBytes(tableBuf.buffer);
+  out.writeBytes(dataBuf.buffer);
+  if (!options.metadata) {
+    return out;
+  } else {
+    return woffAppendMetadata(out, options.metadata);
+  }
 }
 
 module.exports = ttf2woff;

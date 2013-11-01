@@ -57,7 +57,7 @@ try {
 
 if (args.metadata) {
   try {
-    options.metadata = fs.readFileSync (args.metadata);
+    options.metadata = Array.prototype.slice.call(fs.readFileSync (args.metadata), 0);
   } catch(e) {
     console.error("Can't open metadata file (%s)", args.infile);
     process.exit(1);
@@ -65,12 +65,7 @@ if (args.metadata) {
 }
 
 var ttf = Array.prototype.slice.call(input, 0);
-ttf2woff(ttf, options, function (err, res) {
-  if (err) {
-    console.log(err);
-    return;
-  }
-  var woff = new Buffer(res.buffer);
-  fs.writeFileSync(args.outfile[0], woff);
-});
+var woff = new Buffer(ttf2woff(ttf, options).buffer);
+
+fs.writeFileSync(args.outfile[0], woff);
 
