@@ -6,10 +6,10 @@
 
 'use strict';
 
-var zlib = require('zlib');
 
 var ByteBuffer = require('./lib/byte_buffer.js');
-var Deflate = require('./lib/deflate.js');
+var deflate = require('./lib/deflate.js');
+
 
 function ulong(t) {
   /*jshint bitwise:false*/
@@ -23,20 +23,6 @@ function ulong(t) {
 function longAlign(n) {
   /*jshint bitwise:false*/
   return (n+3) & ~3;
-}
-
-function pad(src) {
-  /*jshint bitwise:false*/
-  switch (src.length & 3) {
-  case 0:
-    return src;
-  case 1:
-    return new ByteBuffer(src.buffer.concat([0, 0, 0]));
-  case 2:
-    return new ByteBuffer(src.buffer.concat([0, 0]));
-  case 3:
-    return new ByteBuffer(src.buffer.concat([0]));
-  }
 }
 
 function calc_checksum(buf) {
@@ -100,9 +86,9 @@ var SIZEOF = {
   SFNT_TABLE_ENTRY: 16
 };
 
-function woffAppendMetadata(src, metadata, callback) {
+function woffAppendMetadata(src, metadata) {
 
-  var  res = Deflate(metadata);
+  var  res = deflate(metadata);
 
   var zdata =  new ByteBuffer(Array.prototype.slice.call(res, 0));
   src.setUint32(WOFF_OFFSET.SIZE, src.length + zdata.length);
@@ -196,6 +182,8 @@ function ttf2woff(arr, options, callback) {
   }
   var checksumAdjustment = ulong (MAGIC.CHECKSUM_ADJUSTMENT - csum);
 
+  var len;
+  
   for (i = 0; i < entries.length; ++i) {
     tableEntry = entries[i];
     var sfntData = new ByteBuffer(buf.buffer, tableEntry.Offset, tableEntry.Length);
@@ -206,17 +194,23 @@ function ttf2woff(arr, options, callback) {
       sfntData.setUint32 (SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT, checksumAdjustment);
     }
 
-    var res = Deflate(sfntData.buffer.slice(sfntData.start, sfntData.start + sfntData.length));
+    var res = deflate(sfntData.buffer.slice(sfntData.start, sfntData.start + sfntData.length));
 
-    var woffData;
-    if (res.length >= sfntData.length) { //WOFF standard requires packed data only if size is reduced.
-      woffData = new ByteBuffer(sfntData.buffer.slice(sfntData.start, sfntData.start + sfntData.length));
-    } else
-      woffData = new ByteBuffer(Array.prototype.slice.call(res, 0));
-
-
-    var compLength = woffData.length;
-    woffData = pad(woffData);
+    var compLength;
+    
+    // We should use compression only if it really save space (standard requirement).
+    // Also, data should be aligned to long (with zeros?).
+    compLength = Math.min(res.length, sfntData.length);
+    len = longAlign(compLength);
+    
+    var woffData = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
+    woffData.fill(0);
+    
+    if (res.length >= sfntData.length) {
+      woffData.writeBytes(sfntData.buffer.slice(sfntData.start, sfntData.start + sfntData.length));
+    } else {
+      woffData.writeBytes(res);
+    }
 
     tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.OFFSET, offset);
 
@@ -224,7 +218,7 @@ function ttf2woff(arr, options, callback) {
     woffSize += woffData.length;
 
     tableBuf.setUint32(i*SIZEOF.WOFF_ENTRY + WOFF_ENTRY_OFFSET.COMPR_LENGTH, compLength);
-    var len = (dataBuf.length || 0) + woffData.length;
+    len = (dataBuf.length || 0) + woffData.length;
     var newBuf = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
     if (dataBuf.buffer) {
       newBuf.writeBytes(dataBuf.buffer);
@@ -239,7 +233,7 @@ function ttf2woff(arr, options, callback) {
   woffHeader.setUint16(WOFF_OFFSET.VERSION_MIN, version.min);
   woffHeader.setUint32(WOFF_OFFSET.FLAVOR, flavor);
 
-  var len = woffHeader.length + tableBuf.length + dataBuf.length;
+  len = woffHeader.length + tableBuf.length + dataBuf.length;
   var out = new ByteBuffer(Uint8Array ? new Uint8Array(len) : new Array(len));
   out.writeBytes(woffHeader.buffer);
   out.writeBytes(tableBuf.buffer);
