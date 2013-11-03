@@ -104,8 +104,10 @@ function woffAppendMetadata(src, metadata) {
   return buf;
 }
 
-function ttf2woff(arr, options, callback) {
+function ttf2woff(arr, options) {
   var buf = new ByteBuffer(arr);
+  options = options || {};
+
   var version = {
     maj: 0,
     min: 1
@@ -155,8 +157,7 @@ function ttf2woff(arr, options, callback) {
     if (tableEntry.Tag !== 'head') {
       var algntable = new ByteBuffer(buf.buffer, tableEntry.Offset, longAlign(tableEntry.Length));
       if (calc_checksum(algntable) !== tableEntry.checkSum) {
-        callback(new Error('checksum error'));
-        return;
+        throw 'Checksum error in ' + tableEntry.Tag;
       }
     }
 
