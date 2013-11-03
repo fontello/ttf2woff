@@ -1,8 +1,17 @@
+1.2.0 / 2013-11-04
+------------------
+
+- Changed API to sync
+- Removed jDataView dependency
+- Removed node.js `zlib` dependency (use built-in js compressor)
+- Should work in browser
+
+
 1.1.0 / 2013-07-24
 ------------------
 
 - Changed API to return jDataView (internals still uses async code for zlib)
-- Fixed store for uncompressable tables.
+- Fixed store for uncompressable tables
 - Code cleanup
 
 
