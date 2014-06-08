@@ -8,7 +8,7 @@
 
 
 var ByteBuffer = require('./lib/byte_buffer.js');
-var deflate = require('./lib/deflate.js');
+var deflate = require('pako/lib/deflate.js').deflate;
 
 
 function ulong(t) {

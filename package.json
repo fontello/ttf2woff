@@ -19,7 +19,8 @@
                       ],
 
   "dependencies"    : {
-                        "argparse"  : "~ 0.1.15"
+                        "argparse"  : "~ 0.1.15",
+                        "pako"      : "~ 0.2.2"
                       },
 
   "repository"      : {
