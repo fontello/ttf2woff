@@ -37,7 +37,7 @@ parser.addArgument(
 );
 
 parser.addArgument(
-  ['-m', '--metadata'],
+  [ '-m', '--metadata' ],
   {
     help: 'Metadata XML file (optional)',
     required: false
@@ -48,9 +48,11 @@ var args = parser.parseArgs();
 var input;
 var options = {};
 
+/* eslint-disable */
+
 try {
   input = fs.readFileSync(args.infile[0]);
-} catch(e) {
+} catch (e) {
   console.error("Can't open input file (%s)", args.infile[0]);
   process.exit(1);
 }
@@ -58,7 +60,7 @@ try {
 if (args.metadata) {
   try {
     options.metadata = Array.prototype.slice.call(fs.readFileSync (args.metadata), 0);
-  } catch(e) {
+  } catch (e) {
     console.error("Can't open metadata file (%s)", args.infile);
     process.exit(1);
   }
