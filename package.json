@@ -1,6 +1,6 @@
 {
   "name": "ttf2woff",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Convert TTF font to WOFF",
   "keywords": [
     "font",
@@ -15,7 +15,8 @@
     "ttf2woff": "./ttf2woff.js"
   },
   "files": [
-    "index.js"
+    "index.js",
+    "ttf2woff.js"
   ],
   "scripts": {
     "lint": "./node_modules/.bin/eslint .",
