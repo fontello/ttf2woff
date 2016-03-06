@@ -7,7 +7,7 @@
 'use strict';
 
 
-var ByteBuffer = require('./lib/byte_buffer.js');
+var ByteBuffer = require('microbuffer');
 var deflate = require('pako/lib/deflate.js').deflate;
 
 
@@ -97,7 +97,7 @@ function woffAppendMetadata(src, metadata) {
   src.setUint32(WOFF_OFFSET.META_ORIG_LENGTH, metadata.length);
 
   //concatenate src and zdata
-  var buf = ByteBuffer.prototype.create(src.length + zdata.length);
+  var buf = new ByteBuffer(src.length + zdata.length);
 
   buf.writeBytes(src.toArray());
   buf.writeBytes(zdata);
@@ -118,7 +118,7 @@ function ttf2woff(arr, options) {
   //var sfntVersion = buf.getUint32 (0);
   var flavor = 0x10000;
 
-  var woffHeader = ByteBuffer.prototype.create(SIZEOF.WOFF_HEADER);
+  var woffHeader = new ByteBuffer(SIZEOF.WOFF_HEADER);
 
   woffHeader.setUint32(WOFF_OFFSET.MAGIC, MAGIC.WOFF);
   woffHeader.setUint16(WOFF_OFFSET.NUM_TABLES, numTables);
@@ -156,7 +156,7 @@ function ttf2woff(arr, options) {
   var woffSize = offset;
   var sfntSize = SIZEOF.SFNT_HEADER + numTables * SIZEOF.SFNT_TABLE_ENTRY;
 
-  var tableBuf = ByteBuffer.prototype.create(numTables * SIZEOF.WOFF_ENTRY);
+  var tableBuf = new ByteBuffer(numTables * SIZEOF.WOFF_ENTRY);
 
   for (i = 0; i < numTables; ++i) {
     tableEntry = entries[i];
@@ -181,7 +181,7 @@ function ttf2woff(arr, options) {
   for (i = 0; i < entries.length; ++i) {
     tableEntry = entries[i];
 
-    var b = ByteBuffer.prototype.create(SIZEOF.SFNT_TABLE_ENTRY);
+    var b = new ByteBuffer(SIZEOF.SFNT_TABLE_ENTRY);
 
     b.setUint32(SFNT_OFFSET.TAG, tableEntry.Tag.getUint32(0));
     b.setUint32(SFNT_OFFSET.CHECKSUM, tableEntry.checkSum);
@@ -217,7 +217,7 @@ function ttf2woff(arr, options) {
     compLength = Math.min(res.length, sfntData.length);
     len = longAlign(compLength);
 
-    var woffData = ByteBuffer.prototype.create(len);
+    var woffData = new ByteBuffer(len);
 
     woffData.fill(0);
 
@@ -243,7 +243,7 @@ function ttf2woff(arr, options) {
   woffHeader.setUint16(WOFF_OFFSET.VERSION_MIN, version.min);
   woffHeader.setUint32(WOFF_OFFSET.FLAVOR, flavor);
 
-  var out = ByteBuffer.prototype.create(woffSize);
+  var out = new ByteBuffer(woffSize);
 
   out.writeBytes(woffHeader.buffer);
   out.writeBytes(tableBuf.buffer);

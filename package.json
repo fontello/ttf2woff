@@ -15,8 +15,7 @@
     "ttf2woff": "./ttf2woff.js"
   },
   "files": [
-    "index.js",
-    "lib/"
+    "index.js"
   ],
   "scripts": {
     "lint": "./node_modules/.bin/eslint .",
@@ -24,6 +23,7 @@
   },
   "dependencies": {
     "argparse": "^1.0.6",
+    "microbuffer": "^1.0.0",
     "pako": "^1.0.0"
   },
   "devDependencies": {
