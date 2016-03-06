@@ -18,6 +18,10 @@
     "index.js",
     "lib/"
   ],
+  "scripts": {
+    "lint": "./node_modules/.bin/eslint .",
+    "test": "npm run lint && ./node_modules/.bin/mocha"
+  },
   "dependencies": {
     "argparse": "^1.0.6",
     "pako": "^1.0.0"
