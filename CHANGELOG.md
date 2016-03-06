@@ -1,3 +1,11 @@
+2.0.0 / 2016-03-06
+------------------
+
+- Maintenance release, no API changes.
+- Drop old nodes support.
+- Deps, CS update, tests.
+
+
 1.3.0 / 2014-08-06
 ------------------
 
