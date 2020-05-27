@@ -68,7 +68,7 @@ if (args.metadata) {
 
 var ttf = new Uint8Array(input);
 //var ttf = Array.prototype.slice.call(input, 0);
-var woff = new Buffer(ttf2woff(ttf, options).buffer);
+var woff = Buffer.from(ttf2woff(ttf, options).buffer);
 
 fs.writeFileSync(args.outfile[0], woff);
 
