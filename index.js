@@ -12,7 +12,7 @@ var deflate = require('pako/lib/deflate.js').deflate;
 
 
 function ulong(t) {
-  /*jshint bitwise:false*/
+  /* eslint-disable no-bitwise */
   t &= 0xffffffff;
   if (t < 0) {
     t += 0x100000000;
@@ -21,7 +21,7 @@ function ulong(t) {
 }
 
 function longAlign(n) {
-  /*jshint bitwise:false*/
+  /* eslint-disable no-bitwise */
   return (n + 3) & ~3;
 }
 

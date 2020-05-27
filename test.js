@@ -1,6 +1,6 @@
-/* global it */
 'use strict';
 
+/* eslint-env mocha,es6 */
 
 var assert   = require('assert');
 var fs       = require('fs');
