@@ -17,12 +17,20 @@ Install:
 npm install -g ttf2woff
 ```
 
-Usage example:
+Usage:
+```bash
+ttf2woff [-h] [-v] [-m METADATA] infile [outfile]
+```
 
-``` bash
+Example:
+```bash
 ttf2woff fontello.ttf fontello.woff
 ```
 
+If the outfile name can be deduced from the infile name, it can be omitted
+```bash
+ttf2woff fontello.ttf
+```
 
 Authors
 -------

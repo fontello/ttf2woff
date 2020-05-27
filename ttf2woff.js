@@ -31,7 +31,7 @@ parser.addArgument(
 parser.addArgument(
   [ 'outfile' ],
   {
-    nargs: 1,
+    nargs: '?',
     help: 'Output file'
   }
 );
@@ -45,15 +45,28 @@ parser.addArgument(
 );
 
 var args = parser.parseArgs();
+
 var input;
 var options = {};
 
 /* eslint-disable */
 
+var infile = args.infile[0];
+var outfile = args.outfile && args.outfile[0];
+
+if (!outfile) {
+  if (infile.endsWith('.ttf')) {
+    outfile = infile.replace(/\.ttf$/, '.woff');
+  } else {
+    console.error("infile doesn't have a .ttf extension: can't deduce outfile name", outfile);
+    process.exit(1);
+  }
+}
+
 try {
-  input = fs.readFileSync(args.infile[0]);
+  input = fs.readFileSync(infile);
 } catch (e) {
-  console.error("Can't open input file (%s)", args.infile[0]);
+  console.error("Can't open input file (%s)", infile);
   process.exit(1);
 }
 
@@ -70,5 +83,4 @@ var ttf = new Uint8Array(input);
 //var ttf = Array.prototype.slice.call(input, 0);
 var woff = new Buffer(ttf2woff(ttf, options).buffer);
 
-fs.writeFileSync(args.outfile[0], woff);
-
+fs.writeFileSync(outfile, woff);
