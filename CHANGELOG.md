@@ -1,3 +1,10 @@
+2.0.2 / 2020-05-27
+------------------
+
+- Fix deprecation warning in CLI (`new Buffer` => `Buffer.from`), #15.
+- Dev deps bump & configs update.
+
+
 2.0.1 / 2016-03-06
 ------------------
 
