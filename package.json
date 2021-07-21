@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "argparse": "^1.0.6",
-    "microbuffer": "^1.0.0",
     "pako": "^1.0.0"
   },
   "devDependencies": {

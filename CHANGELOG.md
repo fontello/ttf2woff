@@ -1,3 +1,11 @@
+3.0.0 / WIP
+------------------
+
+- Use node.js `Buffer` instead of `microbuffer` module internally.
+- `require('ttf2eot')(buf)` now accepts `Uint8Array` and returns `Uint8Array` instead
+  of `microbuffer` (you now should use `result` directly instead of `result.buffer`).
+
+
 2.0.2 / 2020-05-27
 ------------------
 
