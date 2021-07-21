@@ -15,36 +15,44 @@ var ttf2woff = require('./index.js');
 
 
 var parser = new ArgumentParser({
-  version: require('./package.json').version,
-  addHelp: true,
+  add_help: true,
   description: 'TTF to WOFF font converter'
 });
 
-parser.addArgument(
-  [ 'infile' ],
+parser.add_argument(
+  'infile',
   {
     nargs: 1,
     help: 'Input file'
   }
 );
 
-parser.addArgument(
-  [ 'outfile' ],
+parser.add_argument(
+  'outfile',
   {
     nargs: 1,
     help: 'Output file'
   }
 );
 
-parser.addArgument(
-  [ '-m', '--metadata' ],
+parser.add_argument(
+  '-m', '--metadata',
   {
     help: 'Metadata XML file (optional)',
     required: false
   }
 );
 
-var args = parser.parseArgs();
+parser.add_argument(
+  '-v', '--version',
+  {
+    action: 'version',
+    version: require('./package.json').version,
+    help: "show program's version number and exit"
+  }
+);
+
+var args = parser.parse_args();
 var input;
 var options = {};
 
