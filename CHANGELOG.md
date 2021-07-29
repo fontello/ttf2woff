@@ -1,4 +1,4 @@
-3.0.0 / WIP
+3.0.0 / 2021-07-29
 ------------------
 
 - Use node.js `Buffer` instead of `microbuffer` module internally.
